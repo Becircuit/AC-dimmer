@@ -1,0 +1,142 @@
+#include <TimerOne.h>
+#include "Wire.h"
+
+const byte I2C_SLAVE_ADDR = 0x20;
+
+#define SPEED 20
+
+#define GATE_IMPULSE 5
+
+#define FREQ 101
+
+int dimmerPin[4]={11,12,5,6};
+
+unsigned int  CH1, CH2, CH3, CH4;
+unsigned int  buf_CH1, buf_CH2, buf_CH3, buf_CH4;
+unsigned char clock_cn;    
+unsigned int  clock_tick;      
+bool flagDim[4];
+unsigned char date;
+int dimmerValue;
+
+byte data = 0;
+long response = 200;
+
+void setup() {
+  
+   Serial.begin(115200); //initialize the serial transmition 
+ 
+   for(int i=0;i<4;i++) pinMode(dimmerPin[i], OUTPUT);
+
+  attachInterrupt(digitalPinToInterrupt(3), zero_crosss_int, RISING);
+  Timer1.initialize(20); 
+  Timer1.attachInterrupt( timerIsr );
+
+  flagDim[0]=1;
+  flagDim[1]=0;
+  flagDim[2]=0;
+  flagDim[3]=1;
+
+   buf_CH1=DIMM_VALUE(50); 
+   buf_CH2=DIMM_VALUE(50); 
+   buf_CH3=DIMM_VALUE(50); 
+   buf_CH4=DIMM_VALUE(50);
+
+ 
+
+}
+
+
+void loop() {
+
+
+
+ if(Serial.available()){
+   date=Serial.read();
+   
+   dimmerValue=map(date,48,57,255,0);
+   Serial.println(dimmerValue);
+
+   buf_CH1=DIMM_VALUE(dimmerValue); 
+     
+ }
+
+ for (i=255;i>1;i--) {buf_CH1=DIMM_VALUE(i); delay(SPEED);}
+   for (i=255;i>1;i--) {buf_CH2=DIMM_VALUE(i); delay(SPEED);}
+    for (i=255;i>1;i--) {buf_CH3=DIMM_VALUE(i); delay(SPEED);}
+     for (i=255;i>1;i--) {buf_CH4=DIMM_VALUE(i); delay(SPEED);}
+
+  for (i=0;i<255;i++) {buf_CH1=DIMM_VALUE(i); delay(SPEED);}   
+   for (i=0;i<255;i++) {buf_CH2=DIMM_VALUE(i); delay(SPEED);}   
+    for (i=0;i<255;i++) {buf_CH3=DIMM_VALUE(i); delay(SPEED);}   
+     for (i=0;i<255;i++) {buf_CH4=DIMM_VALUE(i); delay(SPEED);}  
+ 
+
+}
+
+
+void timerIsr()
+{    
+    clock_tick++;
+
+    if (clock_cn) 
+     {
+      clock_cn++;
+      
+       if (clock_cn==GATE_IMPULSE)
+       {
+        digitalWrite(dimmerPin[0], LOW); 
+        digitalWrite(dimmerPin[1], LOW); 
+        digitalWrite(dimmerPin[2], LOW); 
+        digitalWrite(dimmerPin[3], LOW);
+        clock_cn=0;
+       }
+     }
+   
+        if (CH1==clock_tick && flagDim[0]==1)
+         {
+          digitalWrite(dimmerPin[0], HIGH);
+          clock_cn=1;
+         }  
+    
+           if (CH2==clock_tick && flagDim[1]==1)
+            {
+             digitalWrite(dimmerPin[1], HIGH);
+             clock_cn=1;
+            }  
+        
+              if (CH3==clock_tick && flagDim[2]==1)
+               {
+                digitalWrite(dimmerPin[2], HIGH);
+                clock_cn=1;
+               }  
+    
+                 if (CH4==clock_tick && flagDim[3]==1)
+                  {
+                   digitalWrite(dimmerPin[3], HIGH);
+                   clock_cn=1;
+                  }   
+
+                  
+}
+
+ 
+void zero_crosss_int()
+{
+  CH1=buf_CH1;
+   CH2=buf_CH2;
+    CH3=buf_CH3;
+     CH4=buf_CH4;
+  
+  clock_tick=0;        
+}
+
+unsigned int DIMM_VALUE (unsigned char level)
+{
+ unsigned int buf_level;
+
+ if (level < 26)  {level=26;}
+ if (level > 229) {level=229;}
+  
+ return ((level*(FREQ))/256)*10;  
+}
